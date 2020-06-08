@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"errors"
 	"zinx/ziface"
 )
 
@@ -21,7 +22,6 @@ func (s *Server) Start() {
 		err      error
 		listener *net.TCPListener
 		conn     *net.TCPConn
-		cnt int 
 	)
 	fmt.Printf("[START] Server listener at IP %s,Port %d,is starting\n", s.IP, s.Port)
 	// 开启一个goroutine去做服务端Listener服务
@@ -37,6 +37,10 @@ func (s *Server) Start() {
 		}
 		// 3. 已经监听成功
 		fmt.Printf("start Zinx Server %s success,now listen %s:%d\n", s.Name, s.IP, s.Port)
+
+		// TODO server.go 这里应该有一个自动生成ID的方法
+		var cid uint32
+		cid = 0
 		// 启动Server网络连接业务
 		for {
 			// 3.1 阻塞等待客户端的连接
@@ -45,24 +49,11 @@ func (s *Server) Start() {
 				continue
 			}
 			//3.2 TODO Server.Start() 设置服务器最大连接控制,如果超过最大连接，那么则关闭此新的连接
-			//3.3 TODO Server.Start() 处理该新连接请求的 业务 方法， 此时应该有 handler 和 conn是绑定的
-
-			// 做一个回复512字节的回显服务
-			go func() {
-				// 不断的循环从客户端获取数据
-				for {
-					buf := make([]byte, 512)
-					if cnt, err = conn.Read(buf); err != nil {
-						fmt.Printf("recv buf err:%s\n", err.Error())
-						continue
-					}
-					// 回显
-					if _, err = conn.Write(buf[:cnt]); err != nil {
-						fmt.Printf("send back buf err:%s\n", err.Error())
-						continue
-					}
-				}
-			}()
+			//3.3 处理该新连接请求的业务方法，此时应该有handler和conn是绑定
+			dealConn := NewConnection(conn, cid, CallBackToClient)
+			cid++
+			// 3.4 启动当前连接的处理业务
+			go dealConn.Start()
 		}
 	}()
 }
@@ -95,4 +86,16 @@ func NewServer(name string) ziface.IServer {
 		Port:      7777,
 	}
 	return s
+}
+
+/*
+  定义当前客户端连接的handle api
+*/
+func CallBackToClient(conn *net.TCPConn, buf []byte, cnt int)(err error){
+	fmt.Println("[Conn Handle CallBackToClient ... ]")
+	if _, err = conn.Write(buf[:cnt]); err != nil {
+		fmt.Printf("send back buf err:%s\n", err)
+		return errors.New("CallBackToClient error")
+	}
+	return nil
 }
