@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"errors"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -25,8 +25,11 @@ func (s *Server) Start() {
 		listener *net.TCPListener
 		conn     *net.TCPConn
 	)
-	fmt.Printf("[START] Server listener at IP %s,Port %d,is starting\n", s.IP, s.Port)
-	// 开启一个goroutine去做服务端Listener服务
+	fmt.Printf("[START] Server name: %s,listenner at IP: %s, Port %d is starting\n", s.Name, s.IP, s.Port)
+	fmt.Printf("[Zinx] Version: %s, MaxConn: %d,  MaxPacketSize: %d\n",
+		utils.GlobalObject.Version,
+		utils.GlobalObject.MaxConn,
+		utils.GlobalObject.MaxPacketSize)	// 开启一个goroutine去做服务端Listener服务
 	go func() {
 		// 1. 获取一个TCP Addr
 		if addr, err = net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port)); err != nil {
@@ -81,11 +84,12 @@ func (s *Server) Serve() {
   创建一个服务器句柄
 */
 func NewServer(name string) ziface.IServer {
+	utils.GlobalObject.Reload()
 	s := &Server{
-		Name:      name,
+		Name:      utils.GlobalObject.Name,
 		IPVersion: "tcp4",
-		IP:        "0.0.0.0",
-		Port:      7777,
+		IP:        utils.GlobalObject.Host,
+		Port:      utils.GlobalObject.Port,
 		Router: nil,
 	}
 	return s

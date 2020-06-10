@@ -1,7 +1,9 @@
 package znet
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"zinx/ziface"
 )
@@ -15,7 +17,7 @@ type Connection struct {
 	Router       ziface.IRouter  // 该连接的处理方法router
 }
 
-func NewConnection(conn *net.TCPConn, connID uint32, router ziface.IRouter) *ziface.IConnection {
+func NewConnection(conn *net.TCPConn, connID uint32, router ziface.IRouter)*Connection{
 	c := &Connection{
 		Conn:         conn,
 		ConnID:       connID,
@@ -28,28 +30,48 @@ func NewConnection(conn *net.TCPConn, connID uint32, router ziface.IRouter) *zif
 
 // 处理conn读数据的goroutine
 func (c *Connection) StartReader() {
+	var (
+		err error
+		dp *DataPack
+		headData []byte
+		msg ziface.IMessage
+		data []byte
+	)
 	fmt.Println("Reader Goroutine is running")
 	defer fmt.Println(c.RemoteAddr().String(), "conn reader exit!")
 	defer c.Stop()
 	for {
-		// 读取最大的数据到buf中
-		var cnt int
-		var err error
-		buf := make([]byte, 512)
-		if cnt, err = c.Conn.Read(buf); err != nil {
-			fmt.Printf("recv data failed,err:%s\n", err)
-			continue
+		// 创建解包对象
+		dp = NewDataPack()
+		// 读取客户端的msg head
+		headData = make([]byte, dp.GetHeadLen())
+		if _,err = io.ReadFull(c.GetTCPConnection(),headData);err != nil{
+			fmt.Println("read head failed,err:",err)
+			break
 		}
+		// 拆包，得到msg id和data
+		if msg, err = dp.UnPack(headData);err != nil{
+			fmt.Println("unpack failed,err:",err)
+			break
+		}
+		if msg.GetDataLen() > 0 {
+			data = make([]byte,msg.GetDataLen())
+			if _,err = io.ReadFull(c.GetTCPConnection(),data);err != nil{
+				fmt.Println("get data failed,err:",err)
+				break
+			}
+		}
+		msg.SetData(data)
 		// 得到当前客户端请求的Request数据
 		req := Request{
-			conn： C,
-			data: buf,
+			conn: c,
+			msg:  msg,
 		}
 		// 从路由Routers中找到注册绑定Conn的对应Handle
 		go func(request ziface.IRequest){
-			c.Router.PreHandle()
-			c.Router.Handle()
-			c.Router.PostHandle()
+			c.Router.PreHandle(request)
+			c.Router.Handle(request)
+			c.Router.PostHandle(request)
 		}(&req)
 	}
 }
@@ -92,4 +114,31 @@ func (c *Connection) GetConnID() uint32 {
 // 获取远程客户端地址信息
 func (c *Connection) RemoteAddr() net.Addr {
 	return c.Conn.RemoteAddr()
+}
+
+// 发送消息
+func (c *Connection) SendMsg(msgId uint32, data []byte) error{
+	var (
+		dp *DataPack
+		msg []byte
+		err error
+	)
+	// 判断连接是否关闭
+	if c.isClosed{
+		return errors.New("Connection Closed when send msg")
+	}
+	// 将data封包，并且发送
+	dp = NewDataPack()
+	if msg,err = dp.Pack(NewMsgPackage(msgId,data));err != nil{
+		fmt.Println("Pack error msg id = ",msgId)
+		return err
+	}
+	// 返回客户端
+	if _,err = c.Conn.Write(msg);err != nil{
+		fmt.Println("write msg id ",msgId,"error")
+		return err
+	}
+
+	return nil
+
 }
