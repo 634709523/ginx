@@ -18,6 +18,21 @@ type Server struct {
 	msgHandler ziface.IMsgHandler
 }
 
+/*
+  创建一个服务器句柄
+*/
+func NewServer(name string) ziface.IServer {
+	utils.GlobalObject.Reload()
+	s := &Server{
+		Name:      utils.GlobalObject.Name,
+		IPVersion: "tcp4",
+		IP:        utils.GlobalObject.Host,
+		Port:      utils.GlobalObject.Port,
+		msgHandler: NewMsgHandler(),
+	}
+	return s
+}
+
 func (s *Server) Start() {
 	var (
 		addr     *net.TCPAddr
@@ -31,6 +46,8 @@ func (s *Server) Start() {
 		utils.GlobalObject.MaxConn,
 		utils.GlobalObject.MaxPacketSize)	// 开启一个goroutine去做服务端Listener服务
 	go func() {
+		// 0. 启动worker工作池机制
+		s.msgHandler.StartWorkerPool()
 		// 1. 获取一个TCP Addr
 		if addr, err = net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port)); err != nil {
 			fmt.Printf("resolve tcp addr err:%s\n", err.Error())
@@ -80,20 +97,7 @@ func (s *Server) Serve() {
 	}
 }
 
-/*
-  创建一个服务器句柄
-*/
-func NewServer(name string) ziface.IServer {
-	utils.GlobalObject.Reload()
-	s := &Server{
-		Name:      utils.GlobalObject.Name,
-		IPVersion: "tcp4",
-		IP:        utils.GlobalObject.Host,
-		Port:      utils.GlobalObject.Port,
-		msgHandler: NewMsgHandler(),
-	}
-	return s
-}
+
 
 //路由功能：给当前服务注册一个路由业务方法，供客户端链接处理使用
 func (s *Server)AddRouter(msgId uint32,router ziface.IRouter) {
