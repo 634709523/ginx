@@ -21,6 +21,7 @@ type GlobalObj struct {
 	WorkerPoolSize uint64         // 工作goroutine的数量
 	MaxPacketSize  uint32         // 数据包的最大值
 	MaxConn        int            `json:"MaxConn"` // 当前服务器主机允许的最大连接个数
+	MaxMsgChanLen int  // 最大的消息通道长度
 }
 
 // 定义一个全局的对象
@@ -55,7 +56,8 @@ func init() {
 		Port:           7777,
 		MaxPacketSize:  4000,
 		MaxConn:        12000,
-		WorkerPoolSize: 1000,
+		WorkerPoolSize: 20,
+		MaxMsgChanLen: 100,
 	}
 	// 从配置文件中加载用户配置参数
 	GlobalObject.Reload()

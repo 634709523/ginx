@@ -8,5 +8,5 @@
   "服务端最大的连接数":"",
   "MaxConn": 3,
   "工作任务的数量":0,
-  "WorkerPoolSize": 1000,
+  "WorkerPoolSize": 20
 }
