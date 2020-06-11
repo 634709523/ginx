@@ -50,7 +50,7 @@ ERR:
 func init(){
 	GlobalObject  = &GlobalObj{
 		Name: "ZinxServerApp",
-		Version:"v0.4",
+		Version:"v0.6",
 		Host: "0.0.0.0",
 		Port:7777,
 		MaxPacketSize: 4000,
